@@ -1,0 +1,6 @@
+pandas
+numba
+einops
+transformers
+laion-clap
+pyloudnorm
