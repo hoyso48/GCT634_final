@@ -1,2 +1,4 @@
 __pycache__/
-bin/ 
+bin/
+gemini_api_key.py
+data/wav/

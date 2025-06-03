@@ -2,5 +2,10 @@ pandas
 numba
 einops
 transformers
+accelerate
+tiktoken
+blobfile
 laion-clap
 pyloudnorm
+tenacity
+google-genai

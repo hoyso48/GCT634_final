@@ -1,15 +1,14 @@
 from pydx7 import dx7_synth, midi_note
 import numpy as np
 
-def render_from_specs(specs: dict, sr=44100, n=64, out_scale=0.75):
+def render_from_specs(specs: dict, sr=48000, n=60, v=100, out_scale=1.0):
     synth = dx7_synth(specs, sr=sr, block_size=64) # block_size can be adjusted
 
     # Create a note sequence: one note, velocity 100, on for 1.0 seconds, off for 0.5 seconds
     # Ensure ton and toff are integers for frame counts
-    sr_val = 44100
-    ton_frames = int(sr_val * 0.1) 
-    toff_frames = int(sr_val * 0.05)
-    note = midi_note(n=n, v=100, ton=ton_frames, toff=toff_frames, silence=0)
+    ton_frames = int(sr * 0.1) 
+    toff_frames = int(sr * 0.05)
+    note = midi_note(n=n, v=v, ton=ton_frames, toff=toff_frames, silence=0)
     audio = synth.render_from_midi_sequence([note])
 
     final_audio = (audio * 32767 * out_scale).astype(np.int16)
@@ -58,3 +57,64 @@ def serialize_specs(specs: dict) -> str:
     lines.append("}")
 
     return "\n".join(lines)
+
+def validate_specs(specs, syx_file='', patch_number=-1):
+    valid = True
+    if 'name' not in specs:
+        print(f"[WARNING] {syx_file}: patch {patch_number}: 'name' is not in specs")
+        patch_name = 'NaN'
+    elif specs['name'] == '':
+        print(f"[WARNING] {syx_file}: patch {patch_number}: 'name' is empty.")
+        patch_name = 'NaN'
+    else:
+        patch_name = specs['name']
+    
+    if not isinstance(patch_name, str):
+        print(f"[WARNING] {syx_file}: patch {patch_number} {patch_name}: 'name' is not a string.")
+        patch_name = 'NaN'
+
+    def check_range(name, value, lo, hi):
+        if not lo <= value <= hi:
+            print(f"[WARNING] {syx_file}: patch {patch_number} {patch_name}: '{name}' = {value} is out of range [{lo}, {hi}]")
+            valid = False
+
+    def check_list_range(name, lst, lo, hi):
+        for idx, v in enumerate(lst):
+            if not lo <= v <= hi:
+                print(f"[WARNING] {syx_file}: patch {patch_number} {patch_name}: '{name}[{idx}]' = {v} is out of range [{lo}, {hi}]")
+                valid = False
+
+    def check_matrix_range(name, matrix, lo, hi):
+        for i, row in enumerate(matrix):
+            for j, v in enumerate(row):
+                if not lo <= v <= hi:
+                    print(f"[WARNING] {syx_file}: patch {patch_number} {patch_name}: '{name}[{i}][{j}]' = {v} is out of range [{lo}, {hi}]")
+                    valid = False
+
+    # Validate all fields
+    check_matrix_range("modmatrix", specs['modmatrix'], 0, 1)
+
+    feedback_count = sum([specs['modmatrix'][i][i] for i in range(6)])
+    if feedback_count > 1:
+        print(f"[WARNING] {syx_file}: patch {patch_number} {patch_name}: multiple operators have feedback.")
+        valid = False
+
+    check_list_range("outmatrix", specs['outmatrix'], 0, 1)
+    check_range("feedback", specs['feedback'], 0, 7)
+    check_list_range("coarse", specs['coarse'], 0, 31)
+    check_list_range("fine", specs['fine'], 0, 99)
+    check_list_range("detune", specs['detune'], -7, 7)
+    check_range("transpose", specs['transpose'], -24, 24)
+    check_list_range("ol", specs['ol'], 0, 99)
+
+    for r in range(4):
+        check_list_range(f"eg_rate[{r}]", specs['eg_rate'][r], 0, 99)
+        check_list_range(f"eg_level[{r}]", specs['eg_level'][r], 0, 99)
+
+    check_list_range("sensitivity", specs['sensitivity'], 0, 7)
+
+    if not isinstance(specs['has_fixed_freqs'], bool):
+        print(f"[WARNING] {syx_file}: patch {patch_number} {patch_name}: 'has_fixed_freqs' is not a boolean.")
+        valid = False
+    
+    return valid
