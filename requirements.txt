@@ -9,3 +9,4 @@ laion-clap
 pyloudnorm
 tenacity
 google-genai
+audiobox_aesthetics

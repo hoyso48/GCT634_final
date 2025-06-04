@@ -1,5 +1,7 @@
 from pydx7 import dx7_synth, midi_note
 import numpy as np
+import ast
+import re
 
 def render_from_specs(specs: dict, sr=48000, n=60, v=100, out_scale=1.0):
     synth = dx7_synth(specs, sr=sr, block_size=64) # block_size can be adjusted
@@ -60,11 +62,12 @@ def serialize_specs(specs: dict) -> str:
 
 def validate_specs(specs, syx_file='', patch_number=-1):
     valid = True
+    #it's ok if name is not present or empty
     if 'name' not in specs:
-        print(f"[WARNING] {syx_file}: patch {patch_number}: 'name' is not in specs")
+        # print(f"[WARNING] {syx_file}: patch {patch_number}: 'name' is not present.")
         patch_name = 'NaN'
     elif specs['name'] == '':
-        print(f"[WARNING] {syx_file}: patch {patch_number}: 'name' is empty.")
+        # print(f"[WARNING] {syx_file}: patch {patch_number}: 'name' is empty.")
         patch_name = 'NaN'
     else:
         patch_name = specs['name']
@@ -91,6 +94,16 @@ def validate_specs(specs, syx_file='', patch_number=-1):
                     print(f"[WARNING] {syx_file}: patch {patch_number} {patch_name}: '{name}[{i}][{j}]' = {v} is out of range [{lo}, {hi}]")
                     valid = False
 
+    def check_list_shape(name, lst, shape):
+        if len(lst) != shape[0]:
+            print(f"[WARNING] {syx_file}: patch {patch_number} {patch_name}: '{name}' has incorrect shape. Expected {shape}, got {len(lst)}")
+            valid = False
+        if len(shape) == 2:
+            for sub_list in lst:
+                if len(sub_list) != shape[1]:
+                    print(f"[WARNING] {syx_file}: patch {patch_number} {patch_name}: '{name}' has incorrect shape. Expected {shape}, got {len(sub_list)}")
+                    valid = False
+    
     # Validate all fields
     check_matrix_range("modmatrix", specs['modmatrix'], 0, 1)
 
@@ -106,6 +119,15 @@ def validate_specs(specs, syx_file='', patch_number=-1):
     check_list_range("detune", specs['detune'], -7, 7)
     check_range("transpose", specs['transpose'], -24, 24)
     check_list_range("ol", specs['ol'], 0, 99)
+    check_list_shape("eg_rate", specs['eg_rate'], (4, 6))
+    check_list_shape("eg_level", specs['eg_level'], (4, 6))
+    check_list_shape("sensitivity", specs['sensitivity'], (6,))
+    check_list_shape("modmatrix", specs['modmatrix'], (6, 6))
+    check_list_shape("outmatrix", specs['outmatrix'], (6,))
+    check_list_shape("coarse", specs['coarse'], (6,))
+    check_list_shape("fine", specs['fine'], (6,))
+    check_list_shape("detune", specs['detune'], (6,))
+    check_list_shape("ol", specs['ol'], (6,))
 
     for r in range(4):
         check_list_range(f"eg_rate[{r}]", specs['eg_rate'][r], 0, 99)
@@ -113,8 +135,65 @@ def validate_specs(specs, syx_file='', patch_number=-1):
 
     check_list_range("sensitivity", specs['sensitivity'], 0, 7)
 
-    if not isinstance(specs['has_fixed_freqs'], bool):
+    #it's ok if has_fixed_freqs is not present
+    if 'has_fixed_freqs' not in specs:
+        # print(f"[WARNING] {syx_file}: patch {patch_number} {patch_name}: 'has_fixed_freqs' is not present.")
+        pass
+    elif not isinstance(specs['has_fixed_freqs'], bool):
         print(f"[WARNING] {syx_file}: patch {patch_number} {patch_name}: 'has_fixed_freqs' is not a boolean.")
         valid = False
-    
+
     return valid
+
+
+def parse_last_specs(text: str) -> dict:
+    """
+    Parses the last occurrence of 'specs = {...}' from the given text and returns it as a Python dictionary.
+    Handles np.array(...) by converting it to list syntax.
+
+    Args:
+        text (str): Multiline string containing one or more 'specs = {...}' definitions.
+
+    Returns:
+        dict: The last parsed specs dictionary.
+    """
+    # Find all matches of 'specs = { ... }'
+    matches = re.findall(r"specs\s*=\s*({.*?})", text, re.DOTALL)
+    if not matches:
+        raise ValueError("No 'specs = {...}' block found.")
+
+    last_dict_str = matches[-1]
+
+    # Convert np.array([...]) to [...]
+    # last_dict_str = re.sub(r'np\.array\((\[.*?\])\)', r'\1', last_dict_str, flags=re.DOTALL)
+
+    try:
+        result = ast.literal_eval(last_dict_str)
+    except Exception as e:
+        raise ValueError(f"Failed to parse specs dictionary: {e}")
+
+    return result
+
+def valid_char(c, invalid_chars=['/', '\\']):
+    if (ord(c) < 32 or ord(c) == 127 or c in invalid_chars):
+        return False
+    return True
+
+def is_invalid_name(name):
+    if not isinstance(name, str):
+        return True
+    if any(not valid_char(c) for c in name):
+        return True
+    return False
+
+def clean_name(name, replace='_NULLNAME_', nan_names = ['NULL', 'N/A', 'NaN'], length=10):
+    if not isinstance(name, str):
+        return replace
+    elif name in nan_names:
+        return replace
+    # 출력 가능한 문자만 남김 (null byte, \x1c 등 제거)
+    cleaned = ''.join(c for c in name if valid_char(c))
+    cleaned = cleaned if cleaned else replace
+    if len(cleaned) < length:
+        cleaned = cleaned + '_' * (length - len(cleaned))
+    return cleaned[:length]

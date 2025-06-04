@@ -119,147 +119,190 @@ def clap_score(id2text, audio_path, audio_files_extension='.wav', clap_model='63
     return score / count if count > 0 else 0
 
 
-def clap_score_from_audio_text(
-    audio_data_list,  # List of uint8 np.ndarray
-    text_captions_list, # List of str
-    batch_size=32,    # Configurable batch size for inference
-    sample_rate=48000,  # Single int (input sample rate for all audios)
-    clap_model_name='630k-audioset-fusion-best.pt',
-    device='cuda'     # Allow device selection, e.g., 'cuda' or 'cpu'
-):
-    """
-    Computes CLAP score from raw audio data and text captions.
+# New functions added below
 
-    Params:
-    -- audio_data_list: List of uint8 NumPy arrays representing audio waveforms.
-    -- text_captions_list: List of strings (prompts) corresponding to each audio.
-    -- batch_size: Batch size for processing audio and text embeddings.
-    -- sample_rate: Sample rate of the input audio(s). Assumed to be the same for all audios.
-    -- clap_model_name: Name of the CLAP model to use (e.g., '630k-audioset-fusion-best.pt').
-    -- device: The device to run the model on ('cuda' or 'cpu').
+def load_clap_model(clap_model_name='630k-audioset-fusion-best.pt', device='cuda'):
+    """
+    Loads a LAION-CLAP model.
+
+    Args:
+        clap_model_name (str): Name of the CLAP model to load.
+            Options: 'music_speech_audioset_epoch_15_esc_89.98.pt', 
+                     'music_audioset_epoch_15_esc_90.14.pt',
+                     'music_speech_epoch_15_esc_89.25.pt',
+                     '630k-audioset-fusion-best.pt'
+        device (str): Device to load the model on ('cuda' or 'cpu').
 
     Returns:
-    -- Average CLAP score for the provided audio-text pairs.
+        laion_clap.CLAP_Module: The loaded CLAP model.
     """
-    if not audio_data_list or not text_captions_list:
-        print("Warning: Empty audio or text list provided for clap_score_from_audio_data.")
-        return 0.0
-
-    if len(audio_data_list) != len(text_captions_list):
-        raise ValueError("Mismatch between number of audio samples and text captions.")
-
-    if not isinstance(sample_rate, int):
-        raise ValueError("sample_rate must be an integer.")
-
-    # --- Model Loading ---
-    model_config = {
-        'music_speech_audioset_epoch_15_esc_89.98.pt': {
-            'url': 'https://huggingface.co/lukewys/laion_clap/resolve/main/music_speech_audioset_epoch_15_esc_89.98.pt',
-            'path': 'load/clap_score/music_speech_audioset_epoch_15_esc_89.98.pt',
-            'enable_fusion': False, 'amodel': 'HTSAT-base'
-        },
-        'music_audioset_epoch_15_esc_90.14.pt': {
-            'url': 'https://huggingface.co/lukewys/laion_clap/resolve/main/music_audioset_epoch_15_esc_90.14.pt',
-            'path': 'load/clap_score/music_audioset_epoch_15_esc_90.14.pt',
-            'enable_fusion': False, 'amodel': 'HTSAT-base'
-        },
-        'music_speech_epoch_15_esc_89.25.pt': {
-            'url': 'https://huggingface.co/lukewys/laion_clap/resolve/main/music_speech_epoch_15_esc_89.25.pt',
-            'path': 'load/clap_score/music_speech_epoch_15_esc_89.25.pt',
-            'enable_fusion': False, 'amodel': 'HTSAT-base'
-        },
-        '630k-audioset-fusion-best.pt': {
-            'url': 'https://huggingface.co/lukewys/laion_clap/resolve/main/630k-audioset-fusion-best.pt',
-            'path': 'load/clap_score/630k-audioset-fusion-best.pt',
-            'enable_fusion': True, 'amodel': None # amodel determined by fusion type
-        }
-    }
-
-    if clap_model_name not in model_config:
-        raise ValueError(f"clap_model_name '{clap_model_name}' not implemented. Choose from {list(model_config.keys())}")
-
-    config = model_config[clap_model_name]
-    clap_path = config['path']
+    if clap_model_name == 'music_speech_audioset_epoch_15_esc_89.98.pt':
+        url = 'https://huggingface.co/lukewys/laion_clap/resolve/main/music_speech_audioset_epoch_15_esc_89.98.pt'
+        clap_path = 'load/clap_score/music_speech_audioset_epoch_15_esc_89.98.pt'
+        model = laion_clap.CLAP_Module(enable_fusion=False, amodel='HTSAT-base', device=device)
+    elif clap_model_name == 'music_audioset_epoch_15_esc_90.14.pt':
+        url = 'https://huggingface.co/lukewys/laion_clap/resolve/main/music_audioset_epoch_15_esc_90.14.pt'
+        clap_path = 'load/clap_score/music_audioset_epoch_15_esc_90.14.pt'
+        model = laion_clap.CLAP_Module(enable_fusion=False, amodel='HTSAT-base', device=device)
+    elif clap_model_name == 'music_speech_epoch_15_esc_89.25.pt':
+        url = 'https://huggingface.co/lukewys/laion_clap/resolve/main/music_speech_epoch_15_esc_89.25.pt'
+        clap_path = 'load/clap_score/music_speech_epoch_15_esc_89.25.pt'
+        model = laion_clap.CLAP_Module(enable_fusion=False, amodel='HTSAT-base', device=device)
+    elif clap_model_name == '630k-audioset-fusion-best.pt':
+        url = 'https://huggingface.co/lukewys/laion_clap/resolve/main/630k-audioset-fusion-best.pt'
+        clap_path = 'load/clap_score/630k-audioset-fusion-best.pt'
+        model = laion_clap.CLAP_Module(enable_fusion=True, device=device) 
+    else:
+        raise ValueError(f"clap_model_name '{clap_model_name}' not implemented")
 
     if not os.path.exists(clap_path):
-        print(f'Downloading {clap_model_name} to {clap_path}...')
+        print('Downloading ', clap_model_name, '...')
         os.makedirs(os.path.dirname(clap_path), exist_ok=True)
-        response = requests.get(config['url'], stream=True)
+        response = requests.get(url, stream=True)
         total_size = int(response.headers.get('content-length', 0))
-        with open(clap_path, 'wb') as file, tqdm(total=total_size, unit='B', unit_scale=True, desc=f"Downloading {clap_model_name}") as progress_bar:
-            for data in response.iter_content(chunk_size=8192):
-                file.write(data)
-                progress_bar.update(len(data))
+        with open(clap_path, 'wb') as file:
+            with tqdm(total=total_size, unit='B', unit_scale=True, desc=f"Downloading {clap_model_name}") as progress_bar:
+                for data in response.iter_content(chunk_size=8192):
+                    file.write(data)
+                    progress_bar.update(len(data))
 
-    model_args = {'enable_fusion': config['enable_fusion'], 'device': device}
-    if 'amodel' in config and config['amodel']: 
-        model_args['amodel'] = config['amodel']
-    
-    model = laion_clap.CLAP_Module(**model_args)
-    
-    pkg = load_state_dict(clap_path, map_location='cpu') # Load to CPU first
-    pkg.pop('text_branch.embeddings.position_ids', None) # Fix for CLAP issue
+    # Try to load with device argument if available, otherwise default
+    try:
+        pkg = load_state_dict(clap_path, device=device)
+    except TypeError: # Older version of factory.py might not support device arg
+        pkg = load_state_dict(clap_path)
+        
+    if 'text_branch.embeddings.position_ids' in pkg:
+        pkg.pop('text_branch.embeddings.position_ids', None)
     model.model.load_state_dict(pkg)
     model.eval()
-    model.to(device) # Move model to target device
-    # --- End Model Loading ---
+    model.to(device) 
+    return model
 
-    # --- Get Text Embeddings ---
-    # print('[EXTRACTING TEXT EMBEDDINGS FOR clap_score_from_audio_data]') # Optional: for verbose logging
-    with torch.no_grad():
-        all_text_embeddings = model.get_text_embedding(text_captions_list, use_tensor=True).to(device)
+def compute_clap_score(model, text_list, audio_path_list, batch_size=32, device='cuda'):
+    """
+    Computes CLAP scores for a list of text prompts and corresponding audio files using a pre-loaded model.
 
-    # --- Process Audio and Calculate Scores in Batches ---
-    # print('[EVALUATING AUDIO DATA FOR clap_score_from_audio_data]') # Optional: for verbose logging
-    total_score = 0.0
-    num_evaluated_samples = 0
+    Args:
+        model (laion_clap.CLAP_Module): The pre-loaded CLAP model.
+        text_list (list of str): A list of text prompts.
+        audio_path_list (list of str): A list of paths to audio files.
+        batch_size (int): Batch size for inference.
+        audio_sample_rate (int): The sample rate to which audio will be resampled.
+        device (str): Device to perform computation on ('cuda' or 'cpu').
 
-    for i in tqdm(range(0, len(audio_data_list), batch_size), desc="Processing audio batches"):
-        batch_audio_data_uint8 = audio_data_list[i : i + batch_size]
-        # batch_srs_list = srs_list[i : i + batch_size] # No longer needed
-        # Corresponding text embeddings for the current batch
-        batch_text_embeddings = all_text_embeddings[i : i + batch_size]
+    Returns:
+        list of float: A list of CLAP scores. Nan for scores that could not be computed.
+    """
+    if not text_list or not audio_path_list:
+        # Return empty list or raise error if appropriate for evaluate.py
+        return [] 
+    if len(text_list) != len(audio_path_list):
+        # Return empty list or raise error
+        print("Warning: text_list and audio_path_list lengths differ. Returning empty score list.")
+        return [] 
 
-        processed_audio_tensors_for_clap_model = []
-        for idx_in_batch, raw_audio_uint8 in enumerate(batch_audio_data_uint8):
+    model.eval() 
+    model.to(device)
 
-            if not isinstance(raw_audio_uint8, np.ndarray) or raw_audio_uint8.dtype != np.uint8:
-                 raise ValueError(f"Audio data at index {i+idx_in_batch} must be a NumPy array of dtype uint8. Found: {type(raw_audio_uint8)}, dtype: {raw_audio_uint8.dtype if isinstance(raw_audio_uint8, np.ndarray) else 'N/A'}")
-
-            # 1. Convert uint8 to float32 (range -1.0 to 1.0)
-            audio_f32 = librosa.util.buf_to_float(raw_audio_uint8, n_bytes=1) # n_bytes=1 for uint8
-
-            # 2. Resample if necessary to 48000 Hz
-            audio_resampled = audio_f32
-            if sample_rate != 48000:
-                audio_resampled = librosa.resample(audio_f32, orig_sr=sample_rate, target_sr=48000, res_type='kaiser_best')
-            
-            # 3. Normalize peak to -1.0
-            audio_normalized = pyln.normalize.peak(audio_resampled, -1.0)
-
-            # 4. Apply CLAP's specific processing (mimicking int16 conversion)
-            audio_final_np = int16_to_float32(float32_to_int16(audio_normalized))
-            
-            # Reshape for CLAP: (1, T) as expected by get_audio_embedding_from_data when passing a list
-            audio_final_np_reshaped = audio_final_np.reshape(1, -1)
-            processed_audio_tensors_for_clap_model.append(torch.from_numpy(audio_final_np_reshaped).float())
-
-        # Move list of processed audio tensors to the target device
-        batch_audio_tensors_on_device = [t.to(device) for t in processed_audio_tensors_for_clap_model]
-
+    all_scores = []
+    
+    text_embeddings_list = []
+    # print('[EXTRACTING TEXT EMBEDDINGS FOR COMPUTE_CLAP_SCORE]') # Optional: for debugging
+    for i in tqdm(range(0, len(text_list), batch_size), desc="Text Embedding Batches (compute_clap_score)", leave=False):
+        batch_texts = text_list[i:i+batch_size]
         with torch.no_grad():
-            # Get audio embeddings for the batch.
-            # x should be a list of tensors, each tensor being one audio sample (1, T)
-            current_audio_embeddings = model.get_audio_embedding_from_data(x=batch_audio_tensors_on_device, use_tensor=True)
+            embeddings = model.get_text_embedding(batch_texts, use_tensor=True)
+            text_embeddings_list.append(embeddings.to(device)) 
+    
+    if not text_embeddings_list: # Should not happen if text_list is not empty
+        return [float('nan')] * len(text_list)
 
-        # Calculate cosine similarity for the batch
-        cosine_sims = torch.nn.functional.cosine_similarity(current_audio_embeddings, batch_text_embeddings, dim=1, eps=1e-8)
+    text_embeddings_tensor = torch.cat(text_embeddings_list, dim=0)
+
+    # print('[EVALUATING GENERATIONS FOR COMPUTE_CLAP_SCORE]') # Optional: for debugging
+    for i in tqdm(range(0, len(audio_path_list), batch_size), desc="Audio Batch Evaluation (compute_clap_score)", leave=False):
+        batch_audio_paths = audio_path_list[i:i+batch_size]
+        batch_text_embeddings = text_embeddings_tensor[i:i+batch_size]
         
-        total_score += torch.sum(cosine_sims).item()
-        num_evaluated_samples += len(batch_audio_data_uint8)
+        audio_batch_tensors = []
+        current_batch_actual_paths = [] # Keep track of paths for which audio was loaded
+        
+        max_len = 0
+        
+        for audio_idx, audio_path in enumerate(batch_audio_paths):
+            if not os.path.exists(audio_path):
+                print(f"Warning: Audio file not found {audio_path}. Will assign NaN score for this item.")
+                # We'll add a placeholder for score later, need to keep track of original batch size
+                continue # Skip loading for this path
 
-    return total_score / num_evaluated_samples if num_evaluated_samples > 0 else 0.0
+            try:
+                audio, _ = librosa.load(audio_path, sr=48000, mono=True)
+                audio = pyln.normalize.peak(audio, -1.0) 
+                audio_processed = int16_to_float32(float32_to_int16(audio)) 
+                audio_tensor = torch.from_numpy(audio_processed).float().unsqueeze(0).to(device) 
+                audio_batch_tensors.append(audio_tensor)
+                current_batch_actual_paths.append(audio_path) # Corresponding path
+                if audio_tensor.shape[1] > max_len:
+                    max_len = audio_tensor.shape[1]
+            except Exception as e:
+                print(f"Error loading or processing audio {audio_path}: {e}. Will assign NaN score.")
+                # Also skip this if loading fails
 
+        # Pad audio tensors in the batch
+        padded_audio_batch = []
+        if audio_batch_tensors: # Only pad if we successfully loaded some audios
+            for audio_tensor in audio_batch_tensors:
+                padding_needed = max_len - audio_tensor.shape[1]
+                if padding_needed > 0:
+                    padded_tensor = torch.nn.functional.pad(audio_tensor, (0, padding_needed))
+                else:
+                    padded_tensor = audio_tensor
+                padded_audio_batch.append(padded_tensor)
+        
+        batch_scores = [float('nan')] * len(batch_audio_paths) # Initialize scores for the current batch with NaN
+
+        if padded_audio_batch: # If there are any audios to process in this batch
+            audio_batch_stacked = torch.cat(padded_audio_batch, dim=0).to(device)
+
+            # Align text embeddings for successfully loaded audios
+            # This is tricky. We need to match text_embeddings to successfully loaded audios.
+            # The text_embeddings are for the whole `batch_audio_paths`.
+            # We need to select the text_embeddings corresponding to `current_batch_actual_paths`.
+            
+            # Create a mapping from original index in batch_audio_paths to new index in audio_batch_tensors
+            original_indices_for_loaded_audio = []
+            for audio_path_loaded in current_batch_actual_paths:
+                try:
+                    original_indices_for_loaded_audio.append(batch_audio_paths.index(audio_path_loaded))
+                except ValueError:
+                    # This should not happen if current_batch_actual_paths is a subset of batch_audio_paths
+                    pass 
+            
+            if original_indices_for_loaded_audio:
+                # Select the corresponding text embeddings
+                relevant_text_embeddings = batch_text_embeddings[original_indices_for_loaded_audio]
+
+                with torch.no_grad():
+                    audio_embeddings = model.get_audio_embedding_from_data(x=audio_batch_stacked, use_tensor=True)
+                    audio_embeddings = audio_embeddings.to(device) 
+                
+                relevant_text_embeddings = relevant_text_embeddings.to(device)
+                
+                if audio_embeddings.shape[0] == relevant_text_embeddings.shape[0] and audio_embeddings.shape[0] > 0:
+                    cosine_sim_batch = torch.nn.functional.cosine_similarity(audio_embeddings, relevant_text_embeddings, dim=1, eps=1e-8)
+                    
+                    # Place computed scores into the correct positions in batch_scores
+                    for idx, original_batch_idx in enumerate(original_indices_for_loaded_audio):
+                        batch_scores[original_batch_idx] = cosine_sim_batch[idx].cpu().item()
+                else:
+                    # This case means there's a mismatch, fill with NaN for safety, though handled by init.
+                    # (Already initialized to NaN, so this is more for clarity)
+                    print(f"Warning: Embedding shape mismatch in batch starting with {batch_audio_paths[0] if batch_audio_paths else 'N/A'}. Audio: {audio_embeddings.shape}, Text: {relevant_text_embeddings.shape}")
+
+        all_scores.extend(batch_scores)
+
+    return all_scores
 
 if __name__ == "__main__":
 

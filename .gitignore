@@ -1,4 +1,7 @@
 __pycache__/
 bin/
+load/
 gemini_api_key.py
 data/wav/
+data/generated/
+test.ipynb

@@ -19,49 +19,34 @@ This project involves generating audio from DX7 synthesizer patch data and then 
 
 ## Usage
 
-### 1. Generating WAV files from Patch Data
+Below are example commands to run the different scripts in this project.
 
-The `patch_to_wav.py` script converts DX7 patch data (typically stored in a `.csv` file) into WAV audio files.
-
-**Example:**
+**1. Generate WAV files from Patch Data:**
 ```bash
-python patch_to_wav.py --sr 48000 --n 64 --v 100 --out_scale 1.0 --csv_path data/DX7_YAMAHA_deduplicated.csv
+python patch_to_wav.py --sr 48000 --n 64 --v 100 --out_scale 1.0 --csv_path data/DX7_YAMAHA_test.csv
 ```
-This command will:
-*   Use a sample rate (`--sr`) of 48000 Hz.
-*   Generate MIDI note number (`--n`) 64 (E4).
-*   Use a MIDI velocity (`--v`) of 100.
-*   Apply an output scaling factor (`--out_scale`) of 1.0.
-*   Read patch data from `data/DX7_YAMAHA_deduplicated.csv` and save the output WAV files to the `data/wav/` directory (by default, inferred from the CSV path).
 
-### 2. Generating Captions for Audio Files
-
-The `generate_captions_gemini.py` script uses the Gemini API to generate descriptive captions for the audio files.
-
-**Example:**
+**2. Generate Captions for Audio Files (Ground Truth):**
 ```bash
-python generate_captions_gemini.py --data_csv_path data/DX7_YAMAHA_deduplicated.csv --model gemini-2.5-flash-preview-05-20 --column_name caption --caption_csv_path data/DX7_YAMAHA_deduplicated_captions.csv
+python generate_captions_gemini.py --data_csv_path data/DX7_YAMAHA_test.csv --model gemini-2.5-flash-preview-05-20 --output_csv_path data/DX7_YAMAHA_test_captions.csv --batch_size 1000
 ```
-This command will:
-*   Read metadata from `data/DX7_YAMAHA_deduplicated.csv`.
-*   Use the `gemini-2.5-flash-preview-05-20` model for caption generation.
-*   Store the generated captions in a column named `caption`.
-*   Save the results (including the new captions) to `data/DX7_YAMAHA_deduplicated_captions.csv`.
 
-## Utilities (`utils.py`)
-
-The `utils.py` file contains helper functions. Notably, the `render_from_specs` function is crucial for converting patch parameter specifications into an audio waveform.
-
-If you have patch data stored as a string representation of a dictionary in a `.csv` file (e.g., in a column named 'specs'), you can convert it to an audio signal like this:
-
-```python
-# Assuming 'specs_string' is the string from the CSV
-# and 'utils.py' is in your Python path or same directory.
-import numpy as np
-from utils import render_from_specs # Make sure pydx7 is also available
-
-specs_dict = eval(specs_string) # Caution: eval can be risky with untrusted input
-audio_waveform = render_from_specs(specs_dict, sr=48000, n=60, v=100)
-# audio_waveform will be a NumPy array of int16 audio data
+**3. Evaluate Ground Truth Audio with Captions:**
+```bash
+python evaluate.py --data_csv_path data/DX7_YAMAHA_test.csv --caption_csv_path data/DX7_YAMAHA_captions_test.csv --output_csv_path data/DX7_YAMAHA_scores_test_gt.csv
 ```
-The `render_from_specs` function takes the patch dictionary, sample rate (`sr`), MIDI note number (`n`), velocity (`v`), and an optional output scaling factor.
+
+**4. Generate DX7 Specs from Captions (Gemini) and Render Audio:**
+```bash
+python generate_specs_gemini.py --caption_csv_path data/DX7_YAMAHA_captions_test.csv --output_csv_path data/DX7_YAMAHA_test_gemini.csv --wav_dir data/generated/gemini_test --print_response
+```
+
+**5. Evaluate Gemini-Generated Audio:**
+```bash
+python evaluate.py --data_csv_path data/DX7_YAMAHA_test_gemini.csv --caption_csv_path data/DX7_YAMAHA_captions_test.csv --output_csv_path data/DX7_YAMAHA_scores_test_gemini.csv --wav_dir data/generated/gemini_test
+```
+
+**6. Generate DX7 Specs from Captions (Transformers - Qwen) and Render Audio:**
+```bash
+python generate_specs_transformers.py --caption_csv_path data/DX7_YAMAHA_captions_test.csv --output_csv_path data/DX7_YAMAHA_test_qwen.csv --wav_dir data/generated/qwen_test --print_response
+```
