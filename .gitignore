@@ -6,3 +6,5 @@ data/wav/
 data/generated/
 test.ipynb
 kadtk/.model-checkpoints/
+unsloth_compiled_cache/
+unsloth_training_checkpoints/
