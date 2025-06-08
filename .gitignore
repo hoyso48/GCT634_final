@@ -5,3 +5,4 @@ gemini_api_key.py
 data/wav/
 data/generated/
 test.ipynb
+kadtk/.model-checkpoints/

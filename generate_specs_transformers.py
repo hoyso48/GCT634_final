@@ -135,7 +135,7 @@ def generate_and_save_audio_row(row_as_tuple, wav_dir, sample_rate):
 
 def main():
     parser = argparse.ArgumentParser(description="Generate DX7 specs from text captions using a Hugging Face  model and then render audio.")
-    parser.add_argument('--model_name_or_path', type=str, default="Qwen/Qwen2.5-7B-Instruct", help="Hugging Face model name or path (default: Qwen/Qwen2.5-7B-Instruct).")
+    parser.add_argument('--model_name_or_path', type=str, default="Qwen/Qwen2.5-14B-Instruct", help="Hugging Face model name or path (default: Qwen/Qwen2.5-7B-Instruct).")
     parser.add_argument('--max_new_tokens', type=int, default=1024, help="Maximum new tokens for the LLM to generate (default: 1024)")
     parser.add_argument('--caption_csv_path', type=str, required=True, help="Path to the input captions CSV (must contain 'id' and 'caption').")
     parser.add_argument('--output_csv_path', type=str, required=True, help="Path to save the output CSV with generated specs and wav paths.")

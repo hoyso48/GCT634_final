@@ -6,14 +6,15 @@ import asyncio
 from tenacity import retry, wait_random_exponential, stop_after_attempt
 from gemini_api_key import API_KEY
 client = genai.Client(api_key=API_KEY)
-prompt = "Describe the audio content: the description should start with the general type of sound (do not include the word 'synthesized'), followed by a comma (e.g., electric piano, which...), and then a general characteristic of the timbre and envelope in one sentence. For your reference, the name of the patch used to generate this sound is '{}'."
+prompt = "Describe the audio content, which is generated from the DX7 synthesizer." #"Describe the audio content: the description should start with the general type of sound (do not include the word 'synthesized'), followed by a comma (e.g., electric piano, which...), and then a general characteristic of the timbre and envelope in one sentence. For your reference, the name of the patch used to generate this sound is '{}'."
 
 @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(5))
 async def upload_and_generate(client, audio_path, model, prompt, row_data_name):
     uploaded_file = await client.aio.files.upload(file=audio_path)
+    # prompt = prompt.format(row_data_name)
     response = await client.aio.models.generate_content(
         model=model,
-        contents=[prompt.format(row_data_name), uploaded_file]
+        contents=[prompt, uploaded_file]
     )
     client.files.delete(name=uploaded_file.name)
     return response.text

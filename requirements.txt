@@ -10,3 +10,4 @@ pyloudnorm
 tenacity
 google-genai
 audiobox_aesthetics
+hypy-utils
