@@ -7,9 +7,9 @@ import pandas as pd
 import argparse
 
 
-def process_row(row_tuple, sr=48000, n=60, v=100, out_scale=1.0):
+def process_row(row_tuple, sr=48000, n=60, v=100, out_scale=1.0, wav_dir='data/wav'):
     index, row_data = row_tuple  # Unpack the tuple from iterrows()
-    wav_path = 'data/wav/' + row_data['wav_path']
+    wav_path = wav_dir + '/' + row_data['wav_path']
     wav_dir = os.path.dirname(wav_path)
     
     if not os.path.exists(wav_dir):
@@ -25,6 +25,7 @@ def process_row(row_tuple, sr=48000, n=60, v=100, out_scale=1.0):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--csv_path', type=str, default='data/DX7_YAMAHA_deduplicated.csv')
+    parser.add_argument('--wav_dir', type=str, default='data/wav')
     parser.add_argument('--sr', type=int, default=48000)
     parser.add_argument('--n', type=int, default=60)
     parser.add_argument('--v', type=int, default=100)
@@ -35,7 +36,7 @@ if __name__ == "__main__":
     print(f"Starting parallel processing for {len(df)} items...")
 
     results = Parallel(n_jobs=-1)(
-        delayed(process_row)(row_tuple) for row_tuple in tqdm(df.iterrows(), total=len(df), desc="Generating audio")
+        delayed(process_row)(row_tuple, sr=args.sr, n=args.n, v=args.v, out_scale=args.out_scale, wav_dir=args.wav_dir) for row_tuple in tqdm(df.iterrows(), total=len(df), desc="Generating audio")
     )
 
     print(f"\nFinished processing {len(results)} items.")
