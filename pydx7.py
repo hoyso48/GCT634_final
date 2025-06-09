@@ -180,16 +180,16 @@ def load_patch(patch : np.array):
     rates = np.zeros([4,6],dtype=int)
     levels = np.zeros([4,6],dtype=int)
     sensitivity = np.zeros(6,dtype=int)
-    fixed_freqs = np.zeros(6,dtype=int)
+    fixed_freq = np.zeros(6,dtype=int)
 
     # https://homepages.abdn.ac.uk/d.j.benson/pages/dx7/sysex-format.txt
     # Load OP output level, EG rates and levels
-    has_fixed_freqs = False
+    has_fixed_freq = False
     for op in range(6):
         # First in file is OP6
         off = op*21
         is_fixed = patch[off+17]
-        fixed_freqs[5-op] = is_fixed
+        fixed_freq[5-op] = is_fixed
         if(is_fixed):
             #print("[WARNING] tools.py: OP{} in {} is FIXED.".format(6-op,patch_name))
             has_fixed_freqs = True
@@ -223,7 +223,7 @@ def load_patch(patch : np.array):
     specs['modmatrix'] = get_modmatrix(algorithm)
     specs['outmatrix'] = get_outmatrix(algorithm)
     specs['feedback'] = feedback
-    specs['fixed_freqs'] = fixed_freqs[::-1]
+    specs['fixed_freq'] = fixed_freq[::-1]
     specs['coarse'] = coares[::-1]
     specs['fine'] = fine[::-1]
     specs['detune'] = detune[::-1]
@@ -236,7 +236,7 @@ def load_patch(patch : np.array):
     specs['has_fixed_freqs'] = has_fixed_freqs
     #normalize coarse and detune for fixed freqs
     for i in range(6):
-        if specs['fixed_freqs'][i] == 1:
+        if specs['fixed_freq'][i] == 1:
             specs['coarse'][i] = specs['coarse'][i] % 4
             specs['detune'][i] = 0
     return specs
@@ -503,7 +503,7 @@ def freq_fixed(coarse_vals, fine_vals, detune_vals, transpose):
     freq= base_freq_from_coarse_range * fine_tune_multiplier
     return freq
 
-def compute_freq(coarse_arr, fine_arr, detune_arr, transpose, fixed_freqs):
+def compute_freq(coarse_arr, fine_arr, detune_arr, transpose, fixed_freq):
     '''
     Converts from DX7 format parameters to floating point frequency ratios, including detune.
     Operates element-wise on input NumPy arrays.
@@ -523,14 +523,14 @@ def compute_freq(coarse_arr, fine_arr, detune_arr, transpose, fixed_freqs):
     coarse_vals = coarse_arr.astype(float)
     fine_vals = fine_arr.astype(float)
     detune_vals = detune_arr.astype(float)
-    fixed_freqs = fixed_freqs.astype(bool)
+    fixed_freq = fixed_freq.astype(bool)
 
-    final_freq = np.where(fixed_freqs, freq_fixed(coarse_vals, fine_vals, detune_vals, transpose), freq_not_fixed(coarse_vals, fine_vals, detune_vals, transpose))
+    final_freq = np.where(fixed_freq, freq_fixed(coarse_vals, fine_vals, detune_vals, transpose), freq_not_fixed(coarse_vals, fine_vals, detune_vals, transpose))
     return final_freq
     
 @njit
 def dx7_numba_render(fr: np.ndarray, modmatrix: np.ndarray, outmatrix: np.ndarray,
-                     pitch: np.ndarray, ol: np.ndarray, sr: int, fixed_freqs: np.ndarray,
+                     pitch: np.ndarray, ol: np.ndarray, sr: int, fixed_freq: np.ndarray,
                      feedback_level_param: int, scale: float = 2 * np.pi):
     """
     6-operator FM Renderer with numba, including feedback loop.
@@ -566,7 +566,7 @@ def dx7_numba_render(fr: np.ndarray, modmatrix: np.ndarray, outmatrix: np.ndarra
     for s in range(out.shape[0]):
         # Update base phases for all operators
         for op_idx in range(n_op):
-            if fixed_freqs[op_idx] == 1:
+            if fixed_freq[op_idx] == 1:
                 phases[op_idx] += tstep * 2 * np.pi * fr[op_idx]
             else:
                 phases[op_idx] += tstep * 2 * np.pi * pitch[s] * fr[op_idx]
@@ -624,11 +624,11 @@ class dx7_synth():
     self.specs = specs
     self.modmatrix = np.array(specs['modmatrix']) # Ensure numpy array
     self.outmatrix = np.array(specs['outmatrix']) # Ensure numpy array
-    self.fr = compute_freq(np.array(specs['coarse'][::-1]),np.array(specs['fine'][::-1]),np.array(specs['detune'][::-1]),np.array(specs['transpose']),np.array(specs['fixed_freqs'][::-1]))
+    self.fr = compute_freq(np.array(specs['coarse'][::-1]),np.array(specs['fine'][::-1]),np.array(specs['detune'][::-1]),np.array(specs['transpose']),np.array(specs['fixed_freq'][::-1]))
     self.scale = 2*np.pi # Default modulation index scale
     self.sr = sr
     self.block_size = block_size
-    self.fixed_freqs = np.array(specs['fixed_freqs'][::-1])
+    self.fixed_freq = np.array(specs['fixed_freq'][::-1])
     # Store feedback level from specs, default to 0 if not present
     self.feedback_level = specs.get('feedback', 0) 
 
@@ -637,7 +637,7 @@ class dx7_synth():
     f0_up = upsample(f0,self.block_size)
     
     render = dx7_numba_render(self.fr, self.modmatrix, self.outmatrix,
-                    f0_up, ol_up, self.sr, self.fixed_freqs, self.feedback_level, self.scale)
+                    f0_up, ol_up, self.sr, self.fixed_freq, self.feedback_level, self.scale)
     
     num_carriers = np.sum(self.outmatrix)
     if num_carriers == 0: 
