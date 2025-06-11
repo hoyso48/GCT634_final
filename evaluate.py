@@ -74,3 +74,9 @@ if __name__ == "__main__":
     result = evaluate(clap_model, audiobox_model, df, df_captions, args.wav_dir, args.batch_size)
     print(result[['clap_score', 'clap_score_synthesized', 'audiobox_ce', 'audiobox_cu', 'audiobox_pc', 'audiobox_pq']].describe())
     result.to_csv(args.output_csv_path)
+
+
+# python evaluate.py --data_csv_path artifacts/Qwen3_8B-fp8-filtered_full-tune_temp1.0_topP0.8_topK20.csv --caption_csv_path data/DX7_YAMAHA_captions_test.csv --output_csv_path artifacts/Qwen3_8B-fp8-filtered_full-tune_temp1.0_topP0.8_topK20_score.csv --wav_dir artifacts/Qwen3_8B-fp8-filtered_full-tune_temp1.0_topP0.8_topK20
+
+
+#python generate_specs_finetunedmodel.py --model_path /workspace/GCT634_final/models/Qwen3_8B-fp8-filtered_full-tune --caption_csv_path data/DX7_YAMAHA_test_captions.csv --output_csv_path artifacts/Qwen3_8B-fp8-filtered_full-tune_temp1.0_topP0.8_topK20.csv --wav_dir "artifacts/Qwen3_8B-fp8-filtered_full-tune_temp1.0_topP0.8_topK20" --print_response

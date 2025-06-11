@@ -1,102 +1,99 @@
 import numpy as np
 from numba import njit
 from einops import rearrange
+import copy # For deepcopy
 
 LG_N = 6
 
-def get_modmatrix(algorithm: int) -> np.array:
-    """
-        Returns the modulation matrix corresponding to the algorithm selected.
-    """
-    alg = []
-    # alg 1       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,0,0,0,0], [0,0,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,0], [0,0,0,0,0,1], [0,0,0,0,0,1] ])    
-    # alg 2       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,0,0,0,0], [0,1,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,0], [0,0,0,0,0,1], [0,0,0,0,0,0] ])
-    # alg 3       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,0,0,0,0], [0,0,1,0,0,0], [0,0,0,0,0,0], [0,0,0,0,1,0], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
-    # alg 4       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,0,0,0,0], [0,0,1,0,0,0], [0,0,0,0,0,0], [0,0,0,1,1,0], [0,0,0,0,0,1], [0,0,0,0,0,0] ])
-    # alg 5       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,0,0,0,0], [0,0,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
-    # alg 6       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,0,0,0,0], [0,0,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,0,0], [0,0,0,0,1,1], [0,0,0,0,0,0] ])
+MOD_MATRIX = []
 
-    # alg 7       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,0,0,0,0], [0,0,0,0,0,0], [0,0,0,1,1,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
-    # alg 8       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,0,0,0,0], [0,0,0,0,0,0], [0,0,0,1,1,0], [0,0,0,1,0,0], [0,0,0,0,0,1], [0,0,0,0,0,0] ])
-    # alg 9       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,0,0,0,0], [0,1,0,0,0,0], [0,0,0,1,1,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,0] ])
+# alg 1       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,0,0,0,0], [0,0,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,0], [0,0,0,0,0,1], [0,0,0,0,0,1] ])    
+# alg 2       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,0,0,0,0], [0,1,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,0], [0,0,0,0,0,1], [0,0,0,0,0,0] ])
+# alg 3       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,0,0,0,0], [0,0,1,0,0,0], [0,0,0,0,0,0], [0,0,0,0,1,0], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
+# alg 4       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,0,0,0,0], [0,0,1,0,0,0], [0,0,0,0,0,0], [0,0,0,1,1,0], [0,0,0,0,0,1], [0,0,0,0,0,0] ])
+# alg 5       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,0,0,0,0], [0,0,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
+# alg 6       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,0,0,0,0], [0,0,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,0,0], [0,0,0,0,1,1], [0,0,0,0,0,0] ])
 
-    # alg 10       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,0,0,0,0], [0,0,1,0,0,0], [0,0,1,0,0,0], [0,0,0,0,1,1], [0,0,0,0,0,0], [0,0,0,0,0,0] ])
-    # alg 11       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,0,0,0,0], [0,0,1,0,0,0], [0,0,0,0,0,0], [0,0,0,0,1,1], [0,0,0,0,0,0], [0,0,0,0,0,1] ])
+# alg 7       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,0,0,0,0], [0,0,0,0,0,0], [0,0,0,1,1,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
+# alg 8       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,0,0,0,0], [0,0,0,0,0,0], [0,0,0,1,1,0], [0,0,0,1,0,0], [0,0,0,0,0,1], [0,0,0,0,0,0] ])
+# alg 9       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,0,0,0,0], [0,1,0,0,0,0], [0,0,0,1,1,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,0] ])
 
-    # alg 12       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,0,0,0,0], [0,1,0,0,0,0], [0,0,0,1,1,1], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0] ])
-    # alg 13       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,0,0,0,0], [0,0,0,0,0,0], [0,0,0,1,1,1], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1] ])
+# alg 10       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,0,0,0,0], [0,0,1,0,0,0], [0,0,1,0,0,0], [0,0,0,0,1,1], [0,0,0,0,0,0], [0,0,0,0,0,0] ])
+# alg 11       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,0,0,0,0], [0,0,1,0,0,0], [0,0,0,0,0,0], [0,0,0,0,1,1], [0,0,0,0,0,0], [0,0,0,0,0,1] ])
 
-    # alg 14       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,0,0,0,0], [0,0,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,1], [0,0,0,0,0,0], [0,0,0,0,0,1] ])
-    # alg 15       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,0,0,0,0], [0,1,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,1], [0,0,0,0,0,0], [0,0,0,0,0,0] ])
+# alg 12       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,0,0,0,0], [0,1,0,0,0,0], [0,0,0,1,1,1], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0] ])
+# alg 13       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,0,0,0,0], [0,0,0,0,0,0], [0,0,0,1,1,1], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1] ])
 
-    # alg 16       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,1,0,1,0], [0,0,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
-    # alg 17       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,1,0,1,0], [0,1,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,0] ])
+# alg 14       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,0,0,0,0], [0,0,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,1], [0,0,0,0,0,0], [0,0,0,0,0,1] ])
+# alg 15       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,0,0,0,0], [0,1,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,1], [0,0,0,0,0,0], [0,0,0,0,0,0] ])
 
-    # alg 18       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,1,1,0,0], [0,0,0,0,0,0], [0,0,1,0,0,0], [0,0,0,0,1,0], [0,0,0,0,0,1], [0,0,0,0,0,0] ])
+# alg 16       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,1,0,1,0], [0,0,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
+# alg 17       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,1,0,1,0], [0,1,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,0] ])
 
-    # alg 19       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,0,0,0,0], [0,0,1,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
+# alg 18       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,1,1,0,0], [0,0,0,0,0,0], [0,0,1,0,0,0], [0,0,0,0,1,0], [0,0,0,0,0,1], [0,0,0,0,0,0] ])
 
-    # alg 20       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,0,1,0,0,0], [0,0,1,0,0,0], [0,0,1,0,0,0], [0,0,0,0,1,1], [0,0,0,0,0,0], [0,0,0,0,0,0] ])
-    
-    # alg 21       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,0,1,0,0,0], [0,0,1,0,0,0], [0,0,1,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1], [0,0,0,0,0,0] ])
+# alg 19       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,0,0,0,0], [0,0,1,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
 
-    # alg 22       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
+# alg 20       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,0,1,0,0,0], [0,0,1,0,0,0], [0,0,1,0,0,0], [0,0,0,0,1,1], [0,0,0,0,0,0], [0,0,0,0,0,0] ])
 
-    # alg 23       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,0,0,0,0,0], [0,0,1,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
+# alg 21       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,0,1,0,0,0], [0,0,1,0,0,0], [0,0,1,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1], [0,0,0,0,0,0] ])
 
-    # alg 24       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
+# alg 22       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
 
-    # alg 25       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
+# alg 23       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,0,0,0,0,0], [0,0,1,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
 
-    # alg 26       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,0,0,0,0,0], [0,0,1,0,0,0], [0,0,0,0,0,0], [0,0,0,0,1,1], [0,0,0,0,0,0], [0,0,0,0,0,1] ])
-    # alg 27       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,0,0,0,0,0], [0,0,1,0,0,0], [0,0,1,0,0,0], [0,0,0,0,1,1], [0,0,0,0,0,0], [0,0,0,0,0,0] ])
-    
-    # alg 28       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,1,0,0,0,0], [0,0,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,0], [0,0,0,0,1,0], [0,0,0,0,0,0] ])
-    
-    # alg 29       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
+# alg 24       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
 
-    # alg 30       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,0], [0,0,0,0,1,0], [0,0,0,0,0,0] ])
+# alg 25       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
 
-    # alg 31       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
+# alg 26       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,0,0,0,0,0], [0,0,1,0,0,0], [0,0,0,0,0,0], [0,0,0,0,1,1], [0,0,0,0,0,0], [0,0,0,0,0,1] ])
+# alg 27       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,0,0,0,0,0], [0,0,1,0,0,0], [0,0,1,0,0,0], [0,0,0,0,1,1], [0,0,0,0,0,0], [0,0,0,0,0,0] ])
 
-    # alg 32       OP1            OP2            OP3            OP4            OP5            OP6
-    alg.append([ [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1] ])
+# alg 28       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,1,0,0,0,0], [0,0,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,0], [0,0,0,0,1,0], [0,0,0,0,0,0] ])
 
-    return np.array(alg[algorithm])
+# alg 29       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
 
-def get_outmatrix(algorithm):
-    outmatrix = [
+# alg 30       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,1,0,0], [0,0,0,0,1,0], [0,0,0,0,1,0], [0,0,0,0,0,0] ])
+
+# alg 31       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1], [0,0,0,0,0,1] ])
+
+# alg 32       OP1            OP2            OP3            OP4            OP5            OP6
+MOD_MATRIX.append([ [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,1] ])
+
+MOD_MATRIX = np.array(MOD_MATRIX)
+
+OUT_MATRIX = [
         [1,0,1,0,0,0], #1
         [1,0,1,0,0,0], #2
         [1,0,0,1,0,0], #3
@@ -133,7 +130,24 @@ def get_outmatrix(algorithm):
         [1,1,1,1,1,0], #31
         [1,1,1,1,1,1], #32
     ]
-    return np.array(outmatrix[algorithm])
+    
+OUT_MATRIX = np.array(OUT_MATRIX)
+
+def get_modmatrix(algorithm: int) -> np.array:
+    """
+        Returns the modulation matrix corresponding to the algorithm selected.
+    """
+    return MOD_MATRIX[algorithm]
+
+def get_outmatrix(algorithm: int) -> np.array:
+    return OUT_MATRIX[algorithm]
+
+def get_algorithm(mod_matrix:np.array,out_matrix:np.array) -> int:
+    for i in range(len(MOD_MATRIX)):
+        if(np.array_equal(MOD_MATRIX[i],mod_matrix) and np.array_equal(OUT_MATRIX[i],out_matrix)):
+            return i
+    print("Algorithm not found")
+    return -1
 
 # Loads the first patch
 
@@ -672,3 +686,280 @@ class dx7_synth():
     audio = self.render_from_osc_envelopes(f0,envelopes)
 
     return audio
+
+
+DEFAULT_SPEC_PARAMS = {
+    'name': "INITVOICE ", # 10 chars
+    'algorithm': 31, # Algorithm 32 (0-indexed default)
+
+    # Operator params (OP1 to OP6 order in lists/arrays)
+    # eg_rate: [4 rates][6 ops]
+    'eg_rate':    [[95,95,95,95,95,95], [95,95,95,95,95,95], [95,95,95,95,95,95], [95,95,95,95,95,95]],
+    # eg_level: [4 levels][6 ops]
+    'eg_level':   [[99,99,99,99,99,99], [99,99,99,99,99,99], [99,99,99,99,99,99], [0,0,0,0,0,0]],
+    # ol: [6 ops]
+    'ol':         [99,0,0,0,0,0], # OP1 (carrier in alg 32) at 99, others 0
+    # sensitivity (KVS): [6 ops]
+    'sensitivity': [2,0,0,0,0,0],
+    # fixed_freq: [6 ops]
+    'fixed_freq': [0,0,0,0,0,0],
+    # coarse: [6 ops]
+    'coarse':     [1,1,1,1,1,1],
+    # fine: [6 ops]
+    'fine':       [0,0,0,0,0,0],
+    # detune (spec format: -7 to +7): [6 ops]
+    'detune':     [0,0,0,0,0,0],
+
+    # These are not typically in user spec, but needed for packing.
+    # Values from DX7 initialized voice or common defaults.
+    # [6 ops]
+    'op_kbd_scale_break_pt': [0x27]*6, # C3 (Value 39)
+    'op_kbd_scale_l_depth':  [0]*6,
+    'op_kbd_scale_r_depth':  [0]*6,
+    'op_kbd_scale_l_curve':  [0]*6, # -LIN
+    'op_kbd_scale_r_curve':  [0]*6, # -LIN
+    'op_kbd_rate_scale':     [0]*6,
+    'op_amp_mod_sens':       [0]*6,
+
+    # Pitch EG: [4 rates/levels]
+    'pitch_eg_rate':         [99,99,99,99],
+    'pitch_eg_level':        [50,50,50,50],
+
+    'feedback':              0,
+    'osc_key_sync':          1, # ON in DX7 init
+    'lfo_speed':             35,
+    'lfo_delay':             0,
+    'lfo_pitch_mod_depth':   0,
+    'lfo_amp_mod_depth':     0,
+    'lfo_key_sync':          1, # ON in DX7 init
+    'lfo_waveform':          0, # Triangle
+    'lfo_pitch_mod_sens':    0,
+    'transpose':             0, # Spec transpose (-24 to +24 for example)
+                               # Will be converted to 0-48 for packing (val + 24)
+    # modmatrix and outmatrix are derived from algorithm if not provided.
+    # If algorithm is not provided, it's derived from modmatrix/outmatrix.
+}
+
+def _get_resolved_spec(user_spec, global_defaults):
+    """Merges user_spec with global_defaults to create a complete spec."""
+    resolved = copy.deepcopy(global_defaults)
+
+    for key, value in user_spec.items():
+        if key in ['eg_rate', 'eg_level'] and isinstance(value, list) and \
+           isinstance(resolved[key], list):
+            # Ensure correct dimensions for array-like params
+            # Assuming spec gives [param_idx][op_idx]
+            # resolved[key] is already in this format from defaults
+            for i in range(len(value)): # Iterate over rates/levels
+                if i < len(resolved[key]):
+                    for j in range(len(value[i])): # Iterate over ops
+                        if j < len(resolved[key][i]):
+                             resolved[key][i][j] = value[i][j]
+        elif isinstance(value, list) and isinstance(resolved.get(key), list):
+             # For 1D lists like 'ol', 'coarse', etc.
+            for i in range(len(value)):
+                if i < len(resolved[key]):
+                    resolved[key][i] = value[i]
+        else:
+            resolved[key] = value
+
+    # Derive algorithm if not present or if modmatrix/outmatrix are primary
+    if 'algorithm' not in user_spec or user_spec.get('algorithm') is None:
+        if 'modmatrix' in resolved and 'outmatrix' in resolved:
+            alg_num = get_algorithm(np.array(resolved['modmatrix']), np.array(resolved['outmatrix']))
+            if alg_num != -1:
+                resolved['algorithm'] = alg_num
+            # If alg_num is -1, it will use the default algorithm from global_defaults
+    elif 'algorithm' in resolved: # User provided algorithm, ensure mod/out matrices match
+        alg_num = resolved['algorithm']
+        if 0 <= alg_num < len(MOD_MATRIX):
+            resolved['modmatrix'] = MOD_MATRIX[alg_num].tolist()
+            resolved['outmatrix'] = OUT_MATRIX[alg_num].tolist()
+        else: # Invalid algorithm number, fall back to default algorithm's matrices
+            default_alg = global_defaults.get('algorithm', 0)
+            resolved['modmatrix'] = MOD_MATRIX[default_alg].tolist()
+            resolved['outmatrix'] = OUT_MATRIX[default_alg].tolist()
+            resolved['algorithm'] = default_alg
+
+
+    # Ensure name is 10 chars
+    resolved['name'] = resolved.get('name', "UNNAMED   ")[:10].ljust(10)
+
+    return resolved
+
+def _pack_voice_to_128_bytes(spec):
+    """Packs a single resolved spec dictionary into a 128-byte array."""
+    packed_data = bytearray(128)
+
+    # Operator parameters (OP6 down to OP1 for packing)
+    # spec stores OP1 to OP6, so op_spec_idx = 5 - op_packed_idx
+    for op_packed_idx in range(6): # 0=OP6, 1=OP5, ..., 5=OP1
+        op_spec_idx = 5 - op_packed_idx # 0=OP1, ..., 5=OP6 from spec perspective
+        base = op_packed_idx * 17
+
+        # EG Rates R1-R4 (Bytes 0-3 for current op block)
+        packed_data[base + 0] = int(spec['eg_rate'][0][op_spec_idx]) & 0x7F
+        packed_data[base + 1] = int(spec['eg_rate'][1][op_spec_idx]) & 0x7F
+        packed_data[base + 2] = int(spec['eg_rate'][2][op_spec_idx]) & 0x7F
+        packed_data[base + 3] = int(spec['eg_rate'][3][op_spec_idx]) & 0x7F
+
+        # EG Levels L1-L4 (Bytes 4-7)
+        packed_data[base + 4] = int(spec['eg_level'][0][op_spec_idx]) & 0x7F
+        packed_data[base + 5] = int(spec['eg_level'][1][op_spec_idx]) & 0x7F
+        packed_data[base + 6] = int(spec['eg_level'][2][op_spec_idx]) & 0x7F
+        packed_data[base + 7] = int(spec['eg_level'][3][op_spec_idx]) & 0x7F
+
+        # KBD Level Scaling Break Point (Byte 8)
+        packed_data[base + 8] = int(spec['op_kbd_scale_break_pt'][op_spec_idx]) & 0x7F
+        # KBD Level Scaling Left Depth (Byte 9)
+        packed_data[base + 9] = int(spec['op_kbd_scale_l_depth'][op_spec_idx]) & 0x7F
+        # KBD Level Scaling Right Depth (Byte 10)
+        packed_data[base + 10] = int(spec['op_kbd_scale_r_depth'][op_spec_idx]) & 0x7F
+
+        # Byte 11: KBD L Curve (0-3), R Curve (0-3)
+        l_curve = int(spec['op_kbd_scale_l_curve'][op_spec_idx]) & 3
+        r_curve = int(spec['op_kbd_scale_r_curve'][op_spec_idx]) & 3
+        packed_data[base + 11] = (r_curve << 2) | l_curve
+
+        # Byte 12: OSC Detune (0-14 from spec -7 to +7), KBD Rate Scaling (0-7)
+        # Spec detune is -7 to +7. Packed is 0 to 14.
+        osc_detune_packed = min(max(0, int(spec['detune'][op_spec_idx]) + 7), 14)
+        kbd_rate_sc = int(spec['op_kbd_rate_scale'][op_spec_idx]) & 7
+        packed_data[base + 12] = (osc_detune_packed << 3) | kbd_rate_sc
+
+        # Byte 13: Key Velocity Sens (0-7), Amp Mod Sens (0-3)
+        kvs = int(spec['sensitivity'][op_spec_idx]) & 7
+        ams = int(spec['op_amp_mod_sens'][op_spec_idx]) & 3
+        packed_data[base + 13] = (kvs << 2) | ams # SYSEX F: KVS | AMS
+
+        # Byte 14: Operator Output Level (0-99)
+        packed_data[base + 14] = int(spec['ol'][op_spec_idx]) & 0x7F
+
+        # Byte 15: Freq Coarse (0-31), OSC Mode (0-1)
+        f_coarse = int(spec['coarse'][op_spec_idx]) & 0x1F
+        osc_mode = int(spec['fixed_freq'][op_spec_idx]) & 1
+        packed_data[base + 15] = (f_coarse << 1) | osc_mode
+
+        # Byte 16: Freq Fine (0-99)
+        packed_data[base + 16] = int(spec['fine'][op_spec_idx]) & 0x7F
+
+    # Pitch EG (Bytes 102-109 in final 128-byte array)
+    # PR1-PR4
+    packed_data[102] = int(spec['pitch_eg_rate'][0]) & 0x7F
+    packed_data[103] = int(spec['pitch_eg_rate'][1]) & 0x7F
+    packed_data[104] = int(spec['pitch_eg_rate'][2]) & 0x7F
+    packed_data[105] = int(spec['pitch_eg_rate'][3]) & 0x7F
+    # PL1-PL4
+    packed_data[106] = int(spec['pitch_eg_level'][0]) & 0x7F
+    packed_data[107] = int(spec['pitch_eg_level'][1]) & 0x7F
+    packed_data[108] = int(spec['pitch_eg_level'][2]) & 0x7F
+    packed_data[109] = int(spec['pitch_eg_level'][3]) & 0x7F
+
+    # Algorithm (Byte 110), 0-31
+    packed_data[110] = int(spec['algorithm']) & 0x1F
+
+    # OSC Key Sync (0-1), Feedback (0-7) (Byte 111)
+    oks = int(spec['osc_key_sync']) & 1
+    fb = int(spec['feedback']) & 7
+    packed_data[111] = (oks << 3) | fb
+
+    # LFO Parameters
+    # Speed (Byte 112)
+    packed_data[112] = int(spec['lfo_speed']) & 0x7F
+    # Delay (Byte 113)
+    packed_data[113] = int(spec['lfo_delay']) & 0x7F
+    # Pitch Mod Depth (Byte 114)
+    packed_data[114] = int(spec['lfo_pitch_mod_depth']) & 0x7F
+    # Amp Mod Depth (Byte 115)
+    packed_data[115] = int(spec['lfo_amp_mod_depth']) & 0x7F
+
+    # LFO PMS (0-7), Wave (0-5), Key Sync (0-1) (Byte 116)
+    lfo_pms = int(spec['lfo_pitch_mod_sens']) & 7
+    lfo_wave = int(spec['lfo_waveform']) & 7 # Wave is 0-5, so 3 bits needed.
+    lfo_ks = int(spec['lfo_key_sync']) & 1
+    packed_data[116] = (lfo_pms << 4) | (lfo_wave << 1) | lfo_ks
+
+    # Transpose (Byte 117)
+    # Spec transpose is relative, packed is 0-48 (24 is no transpose)
+    packed_transpose = min(max(0, int(spec['transpose']) + 24), 48)
+    packed_data[117] = packed_transpose & 0x7F # Range 0-48 fits in 7 bits.
+
+    # Voice Name (Bytes 118-127)
+    name_str = spec['name'][:10].ljust(10) # Ensure 10 chars
+    name_ascii = name_str.encode('ascii')
+    for i in range(10):
+        packed_data[118 + i] = name_ascii[i] & 0x7F
+
+    return packed_data
+
+
+def write_syx_from_specs(specs_list, output_filepath, user_defaults=None):
+    """
+    Writes a list of voice specifications to a DX7 SYSEX file (32-voice bulk dump).
+
+    Args:
+        specs_list (list): A list of 'spec' dictionaries.
+        output_filepath (str): Path to write the .syx file.
+        user_defaults (dict, optional): A dictionary to override default parameters
+                                        for voices not fully specified or for padding.
+    """
+    # SYSEX header for 32-voice bulk dump
+    # F0 43 0n 09 20 00 (n=channel, typically 0 for ch1)
+    # Byte count MSB=0x20, LSB=0x00 means 4096 bytes of voice data
+    sysex_header = bytes([0xF0, 0x43, 0x00, 0x09, 0x20, 0x00])
+    sysex_footer = bytes([0xF7])
+
+    # Prepare global defaults by merging user_defaults into DEFAULT_SPEC_PARAMS
+    global_defaults = copy.deepcopy(DEFAULT_SPEC_PARAMS)
+    specs_list = copy.deepcopy(specs_list)
+    if user_defaults:
+        # A more robust merge might be needed if user_defaults contains nested dicts/lists
+        for key, value in user_defaults.items():
+            if isinstance(value, dict) and isinstance(global_defaults.get(key), dict):
+                 global_defaults[key].update(value)
+            elif isinstance(value, list) and isinstance(global_defaults.get(key), list) and key in ['eg_rate', 'eg_level']:
+                # Special handling for list of lists like eg_rate, eg_level
+                for i in range(len(value)):
+                    if i < len(global_defaults[key]):
+                        for j in range(len(value[i])):
+                            if j < len(global_defaults[key][i]):
+                                global_defaults[key][i][j] = value[i][j]
+            elif isinstance(value, list) and isinstance(global_defaults.get(key), list):
+                # For 1D lists like 'ol', 'coarse', etc.
+                for i in range(len(value)):
+                    if i < len(global_defaults[key]):
+                        global_defaults[key][i] = value[i]
+            else:
+                global_defaults[key] = value
+
+
+    all_voice_data = bytearray()
+    num_voices_to_write = 32
+
+    for i in range(num_voices_to_write):
+        if i < len(specs_list):
+            user_s = specs_list[i]
+        else:
+            # Pad with default voice if specs_list is too short
+            user_s = {} # Use an empty spec to get a full default voice
+        for key in user_s:
+            if key not in ['modmatrix', 'outmatrix']:
+                if isinstance(user_s[key], list):
+                    user_s[key] = np.array(user_s[key])[...,::-1].tolist()
+        resolved_s = _get_resolved_spec(user_s, global_defaults)
+        packed_voice = _pack_voice_to_128_bytes(resolved_s)
+        all_voice_data.extend(packed_voice)
+
+    # Calculate checksum
+    # Sum of all 4096 data bytes, then 2's complement, masked with 0x7F
+    checksum_sum = sum(all_voice_data)
+    checksum = (-(checksum_sum % 256)) & 0x7F # Modulo 256 for byte sum, then 2's comp, then mask
+
+    # Assemble full SYSEX message
+    sysex_message = sysex_header + all_voice_data + bytes([checksum]) + sysex_footer
+
+    # Write to file
+    with open(output_filepath, 'wb') as f:
+        f.write(sysex_message)
+
+    print(f"SYSEX data for {num_voices_to_write} voices written to {output_filepath}")

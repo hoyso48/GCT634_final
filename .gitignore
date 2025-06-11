@@ -9,4 +9,12 @@ kadtk/.model-checkpoints/
 unsloth_compiled_cache/
 unsloth_training_checkpoints/
 results/
-yj_src/
+outputs/
+models/
+wandb/
+artifacts/
+.gradio/
+client_secrets.json
+torchinductor_root/
+huggingface/
+.DS_Store/
