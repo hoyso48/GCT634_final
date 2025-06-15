@@ -24,7 +24,6 @@ NUM_BEAM_GROUPS = 4
 DIVERSITY_PENALTY = 100.0
 NUM_RETURN_SEQUENCES = 4
 SEED = 42
-USE_PREDEFINED_CAPTIONS = False
 
 def generate_specs_for_caption(caption, model, tokenizer):
     messages = [
@@ -111,77 +110,50 @@ if __name__ == "__main__":
         # token = "hf_...",      # use one if using gated models
     )
 
-    predefined_captions = np.array([
-        "Piano, which has a rich, full-bodied timbre with a sharp attack and a gradually fading sustain.",
-        "Violin, which produces a warm, expressive tone with a smooth bowing attack and a singing decay.",
-        "Cello, which has a deep, resonant timbre with a mellow onset and a long, emotional sustain.",
-        "Flute, which offers a soft, breathy timbre and a gentle attack with a smooth, airy decay.",
-        "Clarinet, which has a woody, reedy tone with a round attack and subtle vibrato in sustain.",
-        "Trumpet, which features a bright, brassy timbre with a piercing attack and strong harmonic overtones.",
-        "Trombone, which has a bold, rounded tone with a smooth glide in pitch and sustained presence.",
-        "Oboe, which delivers a sharp, nasal timbre with a fast attack and slightly buzzy sustain.",
-        "French horn, which produces a mellow, noble sound with a soft onset and wide, velvety resonance.",
-        "Acoustic guitar, which has a bright, plucky timbre with a quick attack and natural, ringing decay.",
-        "Electric guitar, which features a crisp, amplified tone with variable sustain and expressive vibrato.",
-        "Bass guitar, which provides a deep, punchy tone with a solid attack and a lingering low-end tail.",
-        "Snare drum, which delivers a sharp, snappy crack followed by a short, metallic buzz.",
-        "Kick drum, which has a deep, thumping tone with a strong transient and quick sub decay.",
-        "Hi-hat, which features a crisp, metallic tone with a tight attack and short, sizzly decay.",
-        "Timpani, which produces a deep, booming resonance with a round attack and slow fade.",
-        "Xylophone, which has a bright, percussive tone with a dry, wooden attack and short decay.",
-        "Marimba, which provides a warm, mellow tone with a soft mallet attack and rounded sustain.",
-        "Harp, which produces a delicate, glistening timbre with fast plucks and a gentle, fading resonance.",
-        "Choir, which blends multiple human voices into a lush, harmonic texture with a smooth, flowing envelope."
-    ])
+    import gradio as gr
     
-    if USE_PREDEFINED_CAPTIONS:
-        selected_captions = predefined_captions[np.random.randint(0, len(predefined_captions), 3)]
-        run_generation(selected_captions, model, tokenizer)
-    else:
-        import gradio as gr
+    example_captions = [
+        "Trumpet, which has a bright, brassy timbre and a clear, sustained envelope with a relatively quick attack and decay.",
+        "A piano with a rich, full-bodied timbre with a sharp attack and a gradually fading sustain.",
+        "Bell, which has a bright, metallic timbre with a sharp, percussive attack and a rapid decay.",
+        "Timpani, which features a deep, resonant timbre characterized by a sharp attack and a moderately quick decay.",
+        "Hi-hat, which has a bright, metallic timbre and a sharp attack with a very fast decay."
+    ]
+    #predefined_captions[np.random.choice(len(predefined_captions), 10, replace=False)]
+    
+    def process_captions_and_generate(*text_inputs):
+        captions = [text for text in text_inputs if text and text.strip()]
+        if not captions:
+            return "Please enter at least one prompt to generate sounds."
+
+        # Run generation in a background thread to not block the UI
+        generation_thread = threading.Thread(target=run_generation, args=(captions, model, tokenizer))
+        generation_thread.start()
         
-        example_captions = [
-            "Trumpet, which has a bright, brassy timbre and a clear, sustained envelope with a relatively quick attack and decay.",
-            "A piano with a rich, full-bodied timbre with a sharp attack and a gradually fading sustain.",
-            "Bell, which has a bright, metallic timbre with a sharp, percussive attack and a rapid decay.",
-            "Timpani, which features a deep, resonant timbre characterized by a sharp attack and a moderately quick decay.",
-            "Hi-hat, which has a bright, metallic timbre and a sharp attack with a very fast decay."
-        ]
-        #predefined_captions[np.random.choice(len(predefined_captions), 10, replace=False)]
+        return "Prompts received! Check your console for generation progress. This window can be closed after generation starts."
+
+    with gr.Blocks(
+        theme=gr.themes.Default(text_size=gr.themes.sizes.text_lg),
+        title="Prompt Input for DX7 Sound Patch Generation"
+    ) as demo:
+        gr.Markdown("# 🔊 DX7 Sound Patch Generation from Text Prompts")
+        gr.Markdown("Enter up to 5 text prompts to generate sounds. The generation process will start in your terminal after you click 'Generate'.")
         
-        def process_captions_and_generate(*text_inputs):
-            captions = [text for text in text_inputs if text and text.strip()]
-            if not captions:
-                return "Please enter at least one prompt to generate sounds."
+        with gr.Row():
+            with gr.Column(scale=2):
+                text_inputs = []
+                for i in range(5):
+                    text_inputs.append(gr.Textbox(label=f"Prompt {i+1}", placeholder=f"Enter prompt {i+1}..."))
+                
+                generate_btn = gr.Button("🚀 Generate Sounds")
+                output_text = gr.Label(value="", label="Status")
 
-            # Run generation in a background thread to not block the UI
-            generation_thread = threading.Thread(target=run_generation, args=(captions, model, tokenizer))
-            generation_thread.start()
-            
-            return "Prompts received! Check your console for generation progress. This window can be closed after generation starts."
+            with gr.Column(scale=1):
+                gr.Markdown("### ✨ Example Prompts")
+                example_html = "<div style='font-size: 1.1em; line-height: 1.6;'><ul>" + "".join([f"<li>{cap}</li>" for cap in example_captions]) + "</ul></div>"
+                gr.HTML(example_html)
 
-        with gr.Blocks(
-            theme=gr.themes.Default(text_size=gr.themes.sizes.text_lg),
-            title="Prompt Input for DX7 Sound Patch Generation"
-        ) as demo:
-            gr.Markdown("# 🔊 DX7 Sound Patch Generation from Text Prompts")
-            gr.Markdown("Enter up to 5 text prompts to generate sounds. The generation process will start in your terminal after you click 'Generate'.")
-            
-            with gr.Row():
-                with gr.Column(scale=2):
-                    text_inputs = []
-                    for i in range(5):
-                        text_inputs.append(gr.Textbox(label=f"Prompt {i+1}", placeholder=f"Enter prompt {i+1}..."))
-                    
-                    generate_btn = gr.Button("🚀 Generate Sounds")
-                    output_text = gr.Label(value="", label="Status")
-
-                with gr.Column(scale=1):
-                    gr.Markdown("### ✨ Example Prompts")
-                    example_html = "<div style='font-size: 1.1em; line-height: 1.6;'><ul>" + "".join([f"<li>{cap}</li>" for cap in example_captions]) + "</ul></div>"
-                    gr.HTML(example_html)
-
-            generate_btn.click(fn=process_captions_and_generate, inputs=text_inputs, outputs=output_text)
-        
-        print("Launching Gradio interface... Open the URL in your browser.")
-        demo.launch(share=True) # share=True is recommended for SSH access
+        generate_btn.click(fn=process_captions_and_generate, inputs=text_inputs, outputs=output_text)
+    
+    print("Launching Gradio interface... Open the URL in your browser.")
+    demo.launch(share=True) # share=True is recommended for SSH access
