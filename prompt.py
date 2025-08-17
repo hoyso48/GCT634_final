@@ -31,7 +31,7 @@ specs = {{
 }}```
 ### Prompt: {prompt}"""
 
-zeroshot_prompt = base_prompt + "### Prompt: {prompt}"
+zeroshot_prompt_finetune = base_prompt + "### Prompt: {prompt}"
 
 # example_zeroshot = zeroshot_prompt + "Bells, which have a bright, metallic timbre with a quick, percussive attack and a long, resonant decay."
 
